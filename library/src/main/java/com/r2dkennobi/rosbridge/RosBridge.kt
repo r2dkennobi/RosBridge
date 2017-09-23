@@ -64,7 +64,7 @@ open class RosBridge {
      * @param host Host to initialize to
      * @param port ROS bridge port on the target host
      */
-    protected open fun initRosBridge(host: String, port: Int): Boolean {
+    open fun initRosBridge(host: String, port: Int): Boolean {
         var result = false
         Log.d(TAG, "Setting up ROS Bridge: $host:$port")
         if (this.mServer == null) {
