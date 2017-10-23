@@ -9,5 +9,9 @@ class RosTopic(val topic: String = "", val type: String = "") {
     override fun equals(other: Any?): Boolean =
             other != null && other is RosTopic && other.topic == topic && other.type == type
 
-    override fun hashCode(): Int = super.hashCode()
+    override fun hashCode(): Int {
+        var result = topic.hashCode()
+        result += 31 * type.hashCode()
+        return result
+    }
 }

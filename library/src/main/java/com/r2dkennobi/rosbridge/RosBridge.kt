@@ -18,16 +18,14 @@ import java.util.concurrent.ConcurrentHashMap
  */
 open class RosBridge {
     protected object Holder { val mInstance = RosBridge() }
-    private val mAdvertisingTopics = ConcurrentHashMap<String, RosBridgeAdvertiserI>()
-    private val mSubscribingTopics = ConcurrentHashMap<String, RosBridgeSubscriberI>()
+    private val mAdvertisingTopics = ConcurrentHashMap<RosTopic, RosBridgeAdvertiser>()
+    private val mSubscribingTopics = ConcurrentHashMap<RosTopic, RosBridgeSubscriber>()
     private val mStringCallback: WebSocket.StringCallback = WebSocket.StringCallback { s ->
         try {
             val jo = JSONObject(s)
             val topicName = jo.getString("topic")
             val dataObject = jo.getJSONObject("msg")
-            if (mSubscribingTopics.containsKey(topicName)) {
-                mSubscribingTopics[topicName]?.parseMessage(topicName, dataObject)
-            }
+            mSubscribingTopics.values.map { it.parseMessage(topicName, dataObject) }
         } catch (e: JSONException) {
             Log.e(TAG, "Invalid JSON handling: " + e)
             e.printStackTrace()
@@ -41,10 +39,8 @@ open class RosBridge {
             else -> {
                 mWebSocket = webSocket
                 webSocket.stringCallback = mStringCallback
-                mAdvertisingTopics.keys.map { advertiseTopic(mAdvertisingTopics[it]!!.rosTopic) }
-                mSubscribingTopics.keys
-                        .flatMap { mSubscribingTopics[it]!!.rosTopics }
-                        .forEach { subscribeToTopic(it) } // TODO Maybe avoid forEach
+                mAdvertisingTopics.keys.map { advertiseTopic(it) }
+                mSubscribingTopics.keys.map { subscribeToTopic(it) }
             }
         }
     }
@@ -94,13 +90,13 @@ open class RosBridge {
      *
      * @param cb Module that publishes message to the topic
      */
-    fun addAdvertiser(cb: RosBridgeAdvertiserI): Boolean {
+    fun addAdvertiser(cb: RosBridgeAdvertiser): Boolean {
         var result = false
-        if (!mAdvertisingTopics.containsKey(cb.rosTopic.topic)) {
-            mAdvertisingTopics.put(cb.rosTopic.topic, cb)
+        if (!mAdvertisingTopics.containsKey(cb.advertisingTopic)) {
+            mAdvertisingTopics.put(cb.advertisingTopic, cb)
             result = true
             if (this.mWebSocket != null) {
-                advertiseTopic(cb.rosTopic)
+                advertiseTopic(cb.advertisingTopic)
             }
         }
         return result
@@ -111,11 +107,11 @@ open class RosBridge {
      *
      * @param cb Module that subscribes to topics
      */
-    fun addSubscriber(cb: RosBridgeSubscriberI): Boolean {
+    fun addSubscriber(cb: RosBridgeSubscriber): Boolean {
         var result = false
-        for (rosTopic in cb.rosTopics) {
-            if (!mSubscribingTopics.containsKey(rosTopic.topic)) {
-                mSubscribingTopics.put(rosTopic.topic, cb)
+        for (rosTopic in cb.subscribingTopics) {
+            if (!mSubscribingTopics.containsKey(rosTopic)) {
+                mSubscribingTopics.put(rosTopic, cb)
                 result = true
                 if (this.mWebSocket != null) {
                     subscribeToTopic(rosTopic)
@@ -130,11 +126,11 @@ open class RosBridge {
      *
      * @param cb Module that advertised to a topic
      */
-    fun removeAdvertiser(cb: RosBridgeAdvertiserI): Boolean {
+    fun removeAdvertiser(cb: RosBridgeAdvertiser): Boolean {
         var result = false
-        if (mAdvertisingTopics.containsKey(cb.rosTopic.topic)) {
-            mAdvertisingTopics.remove(cb.rosTopic.topic)
-            unadvertiseTopic(cb.rosTopic)
+        if (mAdvertisingTopics.containsKey(cb.advertisingTopic)) {
+            mAdvertisingTopics.remove(cb.advertisingTopic)
+            unadvertiseTopic(cb.advertisingTopic)
             result = true
         }
         return result
@@ -145,11 +141,11 @@ open class RosBridge {
      *
      * @param cb Module that subscribes to topics
      */
-    fun removeSubscriber(cb: RosBridgeSubscriberI): Boolean {
+    fun removeSubscriber(cb: RosBridgeSubscriber): Boolean {
         var result = false
-        for (rosTopic in cb.rosTopics) {
-            if (mSubscribingTopics.containsKey(rosTopic.topic)) {
-                mSubscribingTopics.remove(rosTopic.topic)
+        for (rosTopic in cb.subscribingTopics) {
+            if (mSubscribingTopics.containsKey(rosTopic)) {
+                mSubscribingTopics.remove(rosTopic)
                 result = true
                 unsubscribeFromTopic(rosTopic)
             }
