@@ -48,6 +48,13 @@ abstract class RosModule {
     }
 
     /**
+     * Called when we want to notify listeners of data update
+     */
+    fun notifyListeners() {
+        this.mPeers.values.map { it.newDataAvailable() }
+    }
+
+    /**
      * Called when a listener wants to stop listening to the data updates
      *
      * @param tag String: Caller ID
